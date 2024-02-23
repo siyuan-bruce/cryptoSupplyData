@@ -1,4 +1,4 @@
-# Crypto Supply Data Scrapper
+## Crypto Supply Data Scrapper
 
 Token supply data is important to understand the dynamics of issuance and redemption. 
 
