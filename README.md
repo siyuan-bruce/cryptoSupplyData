@@ -1,4 +1,4 @@
-## Crypto Supply Data Scrapper
+## Crypto Supply Data Scraper
 
 Token supply data is important to understand the dynamics of issuance and redemption. 
 
@@ -6,3 +6,14 @@ This is a simple python script that scrapes the current supply of a cryptocurren
 
 The package is modified based on the original [cryptoCMD](https://github.com/guptarohit/cryptoCMD).
 
+
+APA reference:
+```
+@misc{jin2024cryptoSupplyScraper,
+  author = {Si Yuan Jin},
+  title = {cryptoSupplyScraper},
+  year = {2024},
+  publisher = {GitHub},
+  journal = {GitHub repository}
+}
+```
