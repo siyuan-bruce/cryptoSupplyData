@@ -8,17 +8,18 @@ Cryptocurrency price History from coinmarketcap.com
 
 from __future__ import print_function
 
-__all__ = ["CmcScraper"]
+__all__ = ["CmcSupplyScraper"]
 
 import os
 import csv
 import tablib
+import numpy as np
 import warnings
 from datetime import datetime
 from .utils import download_coin_data, InvalidParameters
 
 
-class CmcScraper(object):
+class CmcSupplyScraper(object):
     """
     Scrape cryptocurrency historical market price data from coinmarketcap.com
 
@@ -26,51 +27,34 @@ class CmcScraper(object):
 
     def __init__(
         self,
-        coin_code=None,
-        start_date=None,
-        end_date=None,
-        all_time=False,
-        order_ascending=False,
-        fiat="USD",
-        coin_name=None,
-        id_number=None
+        target_date = None,
+        limit = 100,
+        fiat="USD"
     ):
         """
-        :param coin_code: coin code of cryptocurrency e.g. btc. Will be ignored if using id_number.
-        :param start_date: date since when to scrape data (in the format of dd-mm-yyyy)
-        :param end_date: date to which scrape the data (in the format of dd-mm-yyyy)
-        :param all_time: 'True' if need data of all time for respective cryptocurrency
+        :param target_date: (optional) date for which data is to be scraped.
+        :param limit: (optional) limit of the data to be scraped.
         :param order_ascending: data ordered by 'Date' in ascending order (i.e. oldest first).
-        :param fiat: fiat code eg. USD, EUR
-        :param coin_name: coin name in case of many coins with same code e.g. sol -> solana, solcoin
-        :param id_number: id number for the a cryptocurrency on the coinmarketcap.com. 
-            Will override coin_code and coin_name when provided.
+
         """
 
-        self.coin_code = coin_code
-        self.start_date = start_date
-        self.end_date = end_date
-        self.all_time = bool(all_time)
-        self.order_ascending = order_ascending
+        self.target_date = target_date
+        self.limit = limit
         self.fiat = fiat
-        self.coin_name = coin_name
-        self.headers = ["Date", "Open", "High", "Low", "Close", "Volume", "Market Cap", "Time Open", "Time High", "Time Low", "Time Close"]
-        self.rows = []
-        self.id_number = id_number
+        # {"id":1,"name":"Bitcoin","symbol":"BTC","slug":"bitcoin","date_added":"2010-07-13T00:00:00.000Z","tags":["mineable","pow","sha-256","store-of-value","state-channel","coinbase-ventures-portfolio","three-arrows-capital-portfolio","polychain-capital-portfolio","binance-labs-portfolio","blockchain-capital-portfolio","boostvc-portfolio","cms-holdings-portfolio","dcg-portfolio","dragonfly-capital-portfolio","electric-capital-portfolio","fabric-ventures-portfolio","framework-ventures-portfolio","galaxy-digital-portfolio","huobi-capital-portfolio","alameda-research-portfolio","a16z-portfolio","1confirmation-portfolio","winklevoss-capital-portfolio","usv-portfolio","placeholder-ventures-portfolio","pantera-capital-portfolio","multicoin-capital-portfolio","paradigm-portfolio","bitcoin-ecosystem","ftx-bankruptcy-estate"],"max_supply":21000000,"circulating_supply":17556425,"total_supply":17556425,"infinite_supply":false,"platform":null,"cmc_rank":1,"self_reported_circulating_supply":null,"self_reported_market_cap":null,"tvl_ratio":null,"last_updated":"2024-02-22T08:59:57.167Z","quote":{"USD":{"price":3810.42743065,"volume_24h":10794227451.2229,"percent_change_1h":-0.341595,"percent_change_24h":-8.23861,"percent_change_7d":3.64049,"market_cap":66897483404.14943,"last_updated":"2024-02-22T08:59:57.167Z"}}}
 
-        # enable all_time download if start_time or end_time is not given
-        if not (self.start_date and self.end_date):
-            self.all_time = True
+        self.headers = ["id", "name", "symbol", "slug", "date_added", "tags", "max_supply", "circulating_supply", "total_supply", "infinite_supply", "platform", "cmc_rank", "self_reported_circulating_supply", "self_reported_market_cap", "tvl_ratio", "last_updated", "quote"]
+        self.rows = [] 
 
-        if not (self.all_time or (self.start_date and self.end_date)):
+        if not (self.target_date):
             raise InvalidParameters(
-                "'start_date' or 'end_date' cannot be empty if 'all_time' flag is False"
+                "Please provide 'target_date' for which data is to be scraped."
             )
 
     def __repr__(self):
         return (
-            "<CmcScraper coin_code:{}, start_date:{}, end_date:{}, all_time:{}>".format(
-                self.coin_code, self.start_date, self.end_date, self.all_time
+            "<CmcScraper(target_date={0}, limit={1}, fiat={2})>".format(
+                self.target_date, self.limit, self.fiat
             )
         )
 
@@ -86,42 +70,48 @@ class CmcScraper(object):
         if self.rows and not forced:
             return
 
-        if self.all_time:
-            self.start_date, self.end_date = None, None
-
         coin_data = download_coin_data(
-            self.coin_code, self.start_date, self.end_date, self.fiat, self.coin_name, self.id_number
+            self.target_date, self.limit, self.fiat
         )
 
-        for _row in coin_data["data"]["quotes"]:
-
-            _row_quote = list(_row["quote"].values())[0]
+        for _row in coin_data["data"]:
+            
             date = datetime.strptime(
-                _row_quote["timestamp"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                self.target_date, "%d-%m-%Y"
             ).strftime("%d-%m-%Y")
+            
+            
+            # check every field
+            for field in self.headers:
+                if field not in _row:
+                    _row[field] = np.nan
+
 
             row = [
                 date,
-                _row_quote["open"],
-                _row_quote["high"],
-                _row_quote["low"],
-                _row_quote["close"],
-                _row_quote["volume"],
-                _row_quote["market_cap"],
-                _row["time_open"],
-                _row["time_high"],
-                _row["time_low"],
-                _row["time_close"],
+                _row["id"],
+                _row["name"],
+                _row["symbol"],
+                _row["slug"],
+                _row["date_added"],
+                _row["tags"],
+                _row["max_supply"],
+                _row["circulating_supply"],
+                _row["total_supply"],
+                _row["infinite_supply"],
+                _row["cmc_rank"],
+                _row["self_reported_circulating_supply"],
+                _row["self_reported_market_cap"],
+                _row["tvl_ratio"],
+                _row["last_updated"],
+                _row["quote"]
             ]
 
             self.rows.insert(0, row)
 
-        self.end_date, self.start_date = self.rows[0][0], self.rows[-1][0]
+        self.end_date, self.target_date = self.rows[0][0], self.rows[-1][0]
 
-        if self.order_ascending:
-            self.rows.sort(key=lambda x: datetime.strptime(x[0], "%d-%m-%Y"))
-
-    def get_data(self, format="", verbose=False, **kwargs):
+    def get_data(self, format = "", verbose=False, **kwargs):
         """
         This method returns the downloaded data in specified format.
         :param format: extension name of data format. Available: json, xls, yaml, csv, dbf, tsv, html, latex, xlsx, ods
@@ -200,9 +190,9 @@ class CmcScraper(object):
             csv_path = os.getcwd()
 
         if csv_name is None:
-            # Make name fo file in format of {coin_code}_{fiat}_{start_date}_{end_date}.csv
+            # Make name fo file in format of {coin_code}_{fiat}_{target_date}_{end_date}.csv
             csv_name = "{0}_{1}_{2}_{3}.csv".format(
-                self.coin_code, self.fiat, self.start_date, self.end_date
+                self.coin_code, self.fiat, self.target_date, self.end_date
             )
 
         if not csv_name.endswith(".csv"):
@@ -239,9 +229,9 @@ class CmcScraper(object):
             path = os.getcwd()
 
         if name is None:
-            # Make name of file in format: {coin_code}_{fiat}_{start_date}_{end_date}.csv
+            # Make name of file in format: {coin_code}_{fiat}_{target_date}_{end_date}.csv
             name = "{0}_{1}-{2}_{3}".format(
-                self.coin_code, self.fiat, self.start_date, self.end_date
+                self.coin_code, self.fiat, self.target_date, self.end_date
             )
 
         if not name.endswith(".{}".format(format)):
